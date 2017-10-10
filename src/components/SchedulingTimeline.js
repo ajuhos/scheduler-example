@@ -32,6 +32,15 @@ class SchedulingTimeline extends Component {
             return protocol[scheduler.protocol](task, otherTask) ? -1 : 1
         }
 
+        function maxProcessor(tasks) {
+            if(scheduler.protocol === 'RM') {
+                return tasks.length * (Math.pow(2, 1 / tasks.length) - 1)
+            }
+            else {
+                return 1
+            }
+        }
+
         function isEnded(run, T) {
             return run && (run.from + run.remaining) <= T
         }
@@ -147,7 +156,12 @@ class SchedulingTimeline extends Component {
             currentRun = null;
         }
 
-        return { data, ok, n: tasks.reduce((a,t) => a + t.calc / t.period, 0) }
+        return {
+            data,
+            ok,
+            n: tasks.reduce((a,t) => a + t.calc / t.period, 0),
+            max: maxProcessor(tasks)
+        }
     }
 
     constructor(props) {
@@ -192,7 +206,7 @@ class SchedulingTimeline extends Component {
                     </div>
                 </div>
                 <div>
-                    <h3>Processor usage: {this.state.n * 100}%</h3>
+                    <h3>Processor usage: {Math.ceil(this.state.n * 100)}% (&lt; {Math.floor(this.state.max * 100)}%)</h3>
                 </div>
                 <div>
                     {!this.state.ok && <h3>Failed to schedule. <span role="img" aria-label="Broken Heart Emoji">💔</span></h3>}
