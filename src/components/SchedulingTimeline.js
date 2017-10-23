@@ -3,11 +3,14 @@ import React, { Component } from 'react';
 class SchedulingTimeline extends Component {
 
     schedule(scheduler, tasks) {
+        scheduler = JSON.parse(JSON.stringify(scheduler));
+        tasks = JSON.parse(JSON.stringify(tasks));
+
         const data = []
         let ok = true
 
         function wannaStart(task, T) {
-            return (T - task.start) % task.period === 0
+            return T >= task.start && (T - task.start) % task.period === 0
         }
 
         function deadline(run) {
@@ -21,7 +24,19 @@ class SchedulingTimeline extends Component {
         const protocol = {
             RM: (run, otherRun) => run.period < otherRun.period,
             EDF: (run, otherRun) => deadline(run) < deadline(otherRun),
-            LLF: (run, otherRun) => laxity(run) < laxity(otherRun)
+            LLF: (run, otherRun) => {
+                const o1 = laxity(run);
+                const o2 = laxity(otherRun);
+
+                if(o1 === o2) return run.task < otherRun.task;
+                else return o1 < o2;
+            }
+        }
+
+        const priority = {
+            RM: (run) => run.period,
+            EDF: (run) => deadline(run),
+            LLF: (run) => laxity(run)
         }
 
         function isMoreImportant(task, otherTask) {
@@ -30,33 +45,6 @@ class SchedulingTimeline extends Component {
 
         function isMoreImportantSorter(task, otherTask) {
             return protocol[scheduler.protocol](task, otherTask) ? -1 : 1
-        }
-
-        function wcrti(task, Rn, l) {
-            const sumHP = tasks
-                .filter(t => isMoreImportant(t, task))
-                .reduce((a,k) => a + Math.ceil(Rn / k.period) * k.calc, 0)
-
-            const sch = Math.ceil(Rn / scheduler.period) * scheduler.calc
-
-            const Rn1 = task.calc + sumHP + sch;
-
-            if(Rn1 === Rn) return Rn;
-            else return wcrti(task, Rn1, l+1)
-        }
-
-        function wcrt(task) {
-            return { task, r: wcrti(task, task.calc) }
-        }
-
-        function maxProcessor(tasks) {
-            if(scheduler.protocol === 'RM') {
-                const N = tasks.length + (scheduler.calc > 0 ? 1 : 0)
-                return N * (Math.pow(2, 1 / N) - 1)
-            }
-            else {
-                return 1
-            }
         }
 
         function isEnded(run, T) {
@@ -77,7 +65,7 @@ class SchedulingTimeline extends Component {
         let currentRun = null;
         let startedRuns = [];
         schedule: for(let T = 0; T < 200; T++) {
-            if(wannaStart(scheduler, T)) {
+            if(scheduler.period === 0 || wannaStart(scheduler, T)) {
                 console.log('T='+T)
 
                 //0. Check for failure
@@ -115,6 +103,7 @@ class SchedulingTimeline extends Component {
                 }
 
                 //3. Check for new tasks
+                let hasNew = false;
                 for (let task of tasks) {
                     if(wannaStart(task, T)) {
                         console.log(task.task + " wanna start!")
@@ -129,6 +118,7 @@ class SchedulingTimeline extends Component {
                         task.grp++
 
                         startedRuns.push(run)
+                        hasNew = true;
 
                         if(isMoreImportant(run, currentRun)) {
                             console.log('ready', run)
@@ -137,11 +127,29 @@ class SchedulingTimeline extends Component {
                     }
                 }
 
-                //4. Choose one
-                const readyByPriority = ready.sort(isMoreImportantSorter);
-                const toBeCurrentRun = readyByPriority[0];
+                if(!hasNew && currentRun) continue;
 
-                if(currentRun) {
+                //4. Choose one
+                const currentTask = currentRun ? currentRun.task : 0;
+                const readyByPriority = ready
+                    .map(t => {
+                        t.priority = priority[scheduler.protocol](t)
+                        return t
+                    })
+                    .sort((a,b) => {
+                        if(a.priority < b.priority) return -1;
+                        else if(b.priority < a.priority) return 1;
+                        else if(a.task === currentTask) return -1;
+                        else if(b.task === currentTask) return 1;
+                        else return 0;
+                    });
+
+                console.log(readyByPriority);
+
+                const toBeCurrentRun = readyByPriority[0];
+                hasNew = hasNew || !!toBeCurrentRun;
+
+                if(currentRun && hasNew) {
                     //Preemptiv stop
                     currentRun.to = T;
                     data.push(JSON.parse(JSON.stringify(currentRun)));
@@ -168,7 +176,9 @@ class SchedulingTimeline extends Component {
                         currentRun.lastUpdate = currentRun.from;
                     }
                 }
-                else if(currentRun) {
+                else if(currentRun && hasNew) {
+                    const index = startedRuns.indexOf(currentRun);
+                    if(index !== -1) startedRuns.splice(index, 1)
                     startedRuns.push(currentRun = {
                         ...currentRun,
                         from: T + scheduler.calc,
@@ -188,11 +198,7 @@ class SchedulingTimeline extends Component {
 
         return {
             data,
-            ok,
-            n: [ scheduler, ...tasks ].reduce((a,t) => a + t.calc / t.period, 0),
-            max: maxProcessor(tasks),
-            //wcrt: tasks.map(t => wcrt(t))
-            wcrt: []
+            ok
         }
     }
 

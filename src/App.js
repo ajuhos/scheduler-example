@@ -168,12 +168,12 @@ class App extends Component {
                                     <TextField
                                         floatingLabelText="Period (ms)"
                                         value={this.state.scheduler.period}
-                                        onChange={(e,v) => this.setState({ scheduler: { ...this.state.scheduler, period: v } })}
+                                        onChange={(e,v) => this.setState({ scheduler: { ...this.state.scheduler, period: +v } })}
                                     /><br/>
                                     <TextField
                                         floatingLabelText="Calculation (ms)"
                                         value={this.state.scheduler.calc}
-                                        onChange={(e,v) => this.setState({ scheduler: { ...this.state.scheduler, calc: v } })}
+                                        onChange={(e,v) => this.setState({ scheduler: { ...this.state.scheduler, calc: +v } })}
                                     />
                                 </div>}
                             </CardText>
