@@ -43,10 +43,6 @@ class SchedulingTimeline extends Component {
             return !otherTask || protocol[scheduler.protocol](task, otherTask)
         }
 
-        function isMoreImportantSorter(task, otherTask) {
-            return protocol[scheduler.protocol](task, otherTask) ? -1 : 1
-        }
-
         function isEnded(run, T) {
             return run && (run.lastUpdate + run.remaining) <= T
         }
