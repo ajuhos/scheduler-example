@@ -191,8 +191,8 @@ class SchedulingTimeline extends Component {
             ok,
             n: [ scheduler, ...tasks ].reduce((a,t) => a + t.calc / t.period, 0),
             max: maxProcessor(tasks),
-            wcrt: tasks.map(t => wcrt(t))
-           // wcrt: []
+            //wcrt: tasks.map(t => wcrt(t))
+            wcrt: []
         }
     }
 
