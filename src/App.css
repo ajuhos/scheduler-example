@@ -51,6 +51,19 @@
     background: blue;
 }
 
+.entry-4 {
+    background: yellow;
+    color: black;
+}
+
+.entry-5 {
+    background: purple;
+}
+
+.entry-6 {
+    background: orange;
+}
+
 .entry-1.active {
     border-color: red;
     color: red;
@@ -64,6 +77,21 @@
 .entry-3.active {
     border-color: blue;
     color: blue;
+}
+
+.entry-4.active {
+    border-color: yellow;
+    color: yellow;
+}
+
+.entry-5.active {
+    border-color: purple;
+    color: purple;
+}
+
+.entry-6.active {
+    border-color: orange;
+    color: orange;
 }
 
 .ticks {

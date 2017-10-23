@@ -32,9 +32,27 @@ class SchedulingTimeline extends Component {
             return protocol[scheduler.protocol](task, otherTask) ? -1 : 1
         }
 
+        function wcrti(task, Rn, l) {
+            const sumHP = tasks
+                .filter(t => isMoreImportant(t, task))
+                .reduce((a,k) => a + Math.ceil(Rn / k.period) * k.calc, 0)
+
+            const sch = Math.ceil(Rn / scheduler.period) * scheduler.calc
+
+            const Rn1 = task.calc + sumHP + sch;
+
+            if(Rn1 === Rn) return Rn;
+            else return wcrti(task, Rn1, l+1)
+        }
+
+        function wcrt(task) {
+            return { task, r: wcrti(task, task.calc) }
+        }
+
         function maxProcessor(tasks) {
             if(scheduler.protocol === 'RM') {
-                return tasks.length * (Math.pow(2, 1 / tasks.length) - 1)
+                const N = tasks.length + (scheduler.calc > 0 ? 1 : 0)
+                return N * (Math.pow(2, 1 / N) - 1)
             }
             else {
                 return 1
@@ -42,11 +60,16 @@ class SchedulingTimeline extends Component {
         }
 
         function isEnded(run, T) {
-            return run && (run.from + run.remaining) <= T
+            return run && (run.lastUpdate + run.remaining) <= T
         }
 
         function hasFailed(run, T) {
-            return T > (run.arrival + run.period)
+            if(scheduler.protocol === "RM") {
+                return T > (run.arrival + run.period)
+            }
+            else {
+                return T > deadline(run)
+            }
         }
 
         console.log('scheduling with ' + scheduler.protocol + "...")
@@ -68,13 +91,18 @@ class SchedulingTimeline extends Component {
                 }
                 //1. Check for completion
                 if(isEnded(currentRun, T)) {
-                    currentRun.to = currentRun.from + currentRun.remaining;
+                    currentRun.to = currentRun.lastUpdate + currentRun.remaining;
+                    currentRun.remaining = 0;
                     data.push(JSON.parse(JSON.stringify(currentRun)))
                     console.log('ended', currentRun)
 
                     //We have no running task right now.
                     startedRuns.splice(startedRuns.indexOf(currentRun), 1)
                     currentRun = null;
+                }
+                else if(currentRun) {
+                    currentRun.remaining = currentRun.remaining - (T-currentRun.lastUpdate);
+                    currentRun.lastUpdate = T;
                 }
 
                 let ready = [];
@@ -128,7 +156,7 @@ class SchedulingTimeline extends Component {
                             ...currentRun,
                             from: -1,
                             to: -1,
-                            remaining: currentRun.remaining - (currentRun.to-currentRun.from)
+                            remaining: currentRun.remaining - (currentRun.to-currentRun.lastUpdate)
                         })
                     }
 
@@ -137,14 +165,16 @@ class SchedulingTimeline extends Component {
 
                     if (currentRun) {
                         currentRun.from = T + scheduler.calc;
+                        currentRun.lastUpdate = currentRun.from;
                     }
                 }
                 else if(currentRun) {
                     startedRuns.push(currentRun = {
                         ...currentRun,
                         from: T + scheduler.calc,
+                        lastUpdate: T + scheduler.calc,
                         to: -1,
-                        remaining: currentRun.remaining - (currentRun.to-currentRun.from)
+                        remaining: currentRun.remaining - (currentRun.to-currentRun.lastUpdate)
                     })
                 }
             }
@@ -159,8 +189,10 @@ class SchedulingTimeline extends Component {
         return {
             data,
             ok,
-            n: tasks.reduce((a,t) => a + t.calc / t.period, 0),
-            max: maxProcessor(tasks)
+            n: [ scheduler, ...tasks ].reduce((a,t) => a + t.calc / t.period, 0),
+            max: maxProcessor(tasks),
+            wcrt: tasks.map(t => wcrt(t))
+           // wcrt: []
         }
     }
 
@@ -206,10 +238,8 @@ class SchedulingTimeline extends Component {
                     </div>
                 </div>
                 <div>
-                    <h3>Processor usage: {Math.ceil(this.state.n * 100)}% (&lt; {Math.floor(this.state.max * 100)}%)</h3>
-                </div>
-                <div>
                     {!this.state.ok && <h3>Failed to schedule. <span role="img" aria-label="Broken Heart Emoji">💔</span></h3>}
+                    {this.state.ok && <h3>Scheduling done. <span role="img" aria-label="Heart Emoji">❤️</span></h3>}
                 </div>
             </div>
         );
